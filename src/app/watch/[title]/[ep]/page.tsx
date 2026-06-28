@@ -15,30 +15,29 @@ export default function WatchPage({ params }: { params: { title: string, ep: str
   useEffect(() => {
     async function fetchDynamicId() {
       try {
-        // 1. Clean basic weird characters
         let cleanTitle = title.replace(/ *\([^)]*\) */g, "").trim();
 
-        // 2. THE NORMALIZER: Look for "Season X" or "Xnd Season" and save the number!
         let targetSeason = "1";
         const seasonMatch = cleanTitle.match(/Season\s*(\d+)/i) || cleanTitle.match(/(\d+)(?:st|nd|rd|th)\s*Season/i);
-        
         if (seasonMatch) {
           targetSeason = seasonMatch[1];
         }
 
-        // 3. Strip the season text out completely so TVMaze can find the root show
         const baseShowTitle = cleanTitle.replace(/(Season \d+|Part \d+|\d+(st|nd|rd|th) Season|Cour \d+|The Movie)/gi, '').trim();
 
-        // Search TVMaze with the cleaned base title
         const res = await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(baseShowTitle)}`);
         const data = await res.json();
         
-        const fetchedImdb = data[0]?.show?.externals?.imdb;
+        // SMART MATCHING: Find the result that matches the base title, or fallback to the first
+        const bestMatch = data.find((item: any) => 
+          item.show.name.toLowerCase() === baseShowTitle.toLowerCase()
+        ) || data[0];
+
+        const fetchedImdb = bestMatch?.show?.externals?.imdb;
 
         if (fetchedImdb) {
           setImdbId(fetchedImdb);
           
-          // 4. Inject BOTH the dynamic IMDB ID and the dynamic Season Number!
           const dynamicServers = [
             { name: "Server 1 (VidSrc ME)", url: `https://vidsrc.me/embed/tv?imdb=${fetchedImdb}&season=${targetSeason}&episode=${epNumber}` },
             { name: "Server 2 (VidLink)", url: `https://vidlink.pro/tv/${fetchedImdb}/${targetSeason}/${epNumber}` },
@@ -128,7 +127,6 @@ export default function WatchPage({ params }: { params: { title: string, ep: str
             </div>
           </>
         )}
-
       </div>
     </main>
   );
